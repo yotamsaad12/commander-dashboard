@@ -23,25 +23,29 @@ export default function SoldierGuardPage() {
   const [targetId, setTargetId] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const getWeekRange = () => {
-    const now = new Date()
-    const start = new Date(now)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date(start)
-    end.setDate(end.getDate() + 6)
-    end.setHours(23, 59, 59)
-    return { from: start.toISOString(), to: end.toISOString() }
-  }
-
   const load = async () => {
     if (!session) return
-    const { from, to } = getWeekRange()
+    const now = new Date().toISOString()
     const [allRes, soldiersRes, swapsRes] = await Promise.all([
-      fetch(`/api/guard-slots?from=${from}&to=${to}`).then(r => r.json()),
+      fetch(`/api/guard-slots?from=${now}`).then(r => r.json()),
       fetch('/api/users').then(r => r.json()),
       fetch(`/api/swap-requests?userId=${session.id}`).then(r => r.json()),
     ])
-    const all = Array.isArray(allRes) ? allRes : []
+    const allFuture: GuardSlot[] = Array.isArray(allRes) ? allRes : []
+
+    // Find the nearest roster period: take the earliest slot's date and show all slots on the same calendar day range
+    let all = allFuture
+    if (allFuture.length > 0) {
+      const earliest = new Date(allFuture[0].start_time)
+      const periodStart = new Date(earliest)
+      periodStart.setHours(0, 0, 0, 0)
+      // Find the last slot that starts within 7 days of the earliest
+      const periodEnd = new Date(periodStart)
+      periodEnd.setDate(periodEnd.getDate() + 6)
+      periodEnd.setHours(23, 59, 59, 999)
+      all = allFuture.filter(s => new Date(s.start_time) <= periodEnd)
+    }
+
     setAllSlots(all)
     setMySlots(all.filter((s: GuardSlot) => s.soldier_id === session.id))
     setSoldiers(Array.isArray(soldiersRes) ? soldiersRes.filter((u: User) => u.id !== session.id && u.role === 'soldier') : [])
@@ -84,9 +88,11 @@ export default function SoldierGuardPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--sidebar)' }}>רשימת שמירה — השבוע</h1>
+          <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--sidebar)' }}>רשימת שמירה קרובה</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            {myOnly ? `מציג ${mySlots.length} משמרות שלך בלבד` : 'השמירות שלך מסומנות'}
+            {allSlots.length > 0
+              ? new Date(allSlots[0].start_time).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' })
+              : myOnly ? `מציג ${mySlots.length} משמרות שלך בלבד` : 'השמירות שלך מסומנות'}
           </p>
         </div>
         <button
