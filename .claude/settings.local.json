@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import json,sys; p=json.load\\(sys.stdin\\); print\\(p.get\\('bin', {}\\)\\); print\\(p.get\\('exports', {}\\).get\\('./package.json', 'N/A'\\)[:100]\\)\")"
+    ]
+  }
+}

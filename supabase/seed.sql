@@ -1,0 +1,22 @@
+-- Seed: אנשי הצוות
+INSERT INTO users (name, role) VALUES
+  ('גיספן', 'commander'),
+  ('שניר', 'commander'),
+  ('סעדון', 'soldier'),
+  ('פדידה', 'soldier'),
+  ('יסאקוב', 'soldier'),
+  ('אוזן', 'soldier'),
+  ('מידן', 'soldier'),
+  ('דור רפאל', 'soldier'),
+  ('ליים', 'soldier'),
+  ('הקיני', 'soldier'),
+  ('ירין ר', 'soldier'),
+  ('תום ד', 'soldier'),
+  ('עזריאל', 'soldier'),
+  ('מילר', 'soldier'),
+  ('ויסמן', 'soldier'),
+  ('יהודה', 'soldier'),
+  ('יחזקאל', 'soldier'),
+  ('שחר', 'soldier'),
+  ('הוכוייזר', 'soldier'),
+  ('מאיר', 'soldier');
