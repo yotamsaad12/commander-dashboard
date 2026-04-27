@@ -134,7 +134,7 @@ export default function CommanderEquipmentPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+      <div className="page-header">
         <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--sidebar)' }}>ניהול ציוד</h1>
         <button className="btn-primary" onClick={openAdd}>+ שייך ציוד לחייל</button>
       </div>

@@ -162,9 +162,9 @@ export default function CommanderGuardPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+      <div className="page-header">
         <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--sidebar)' }}>ניהול שמירה</h1>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className="guard-tabs" style={{ display: 'flex', gap: '0.5rem' }}>
           {(['roster', 'positions', 'swaps'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ padding: '0.35rem 0.9rem', borderRadius: '20px', border: '1.5px solid var(--primary)', background: tab === t ? 'var(--primary)' : 'transparent', color: tab === t ? 'white' : 'var(--primary)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
               {{ roster: 'רשימה', positions: 'עמדות', swaps: `החלפות${swaps.length > 0 ? ` (${swaps.length})` : ''}` }[t]}
@@ -177,7 +177,7 @@ export default function CommanderGuardPage() {
         <>
           <div className="card" style={{ marginBottom: '1.25rem' }}>
             <h2 className="section-title">יצירת רשימת שמירה אוטומטית</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: '0.75rem', alignItems: 'flex-end' }}>
+            <div className="generate-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: '0.75rem', alignItems: 'flex-end' }}>
               <div>
                 <label className="label">מתאריך</label>
                 <input type="date" className="input" value={genForm.start_date} onChange={e => setGenForm(f => ({ ...f, start_date: e.target.value }))} />
@@ -272,7 +272,7 @@ export default function CommanderGuardPage() {
           <h2 className="section-title">ניהול עמדות</h2>
 
           <div style={{ padding: '1rem', background: 'var(--accent)', borderRadius: '8px', marginBottom: '1.5rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '0.75rem', alignItems: 'flex-end' }}>
+            <div className="positions-form-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '0.75rem', alignItems: 'flex-end' }}>
               <div>
                 <label className="label">שם העמדה</label>
                 <input className="input" placeholder="כניסה ראשית / עמדה צפון..." value={posForm.name} onChange={e => setPosForm(f => ({ ...f, name: e.target.value }))} />

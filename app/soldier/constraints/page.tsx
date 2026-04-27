@@ -71,7 +71,7 @@ export default function SoldierConstraintsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+      <div className="page-header">
         <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--sidebar)' }}>האילוצים שלי</h1>
         <button className="btn-primary" onClick={() => setShowModal(true)}>+ בקשת אילוץ חדשה</button>
       </div>
@@ -122,7 +122,7 @@ export default function SoldierConstraintsPage() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <div className="constraint-date-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
               <div>
                 <label className="label">מתאריך <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(מינימום {minAllowedDate()})</span></label>
                 <input type="date" className="input" min={minAllowedDate()} value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />

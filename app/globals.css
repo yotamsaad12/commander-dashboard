@@ -202,18 +202,74 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* ─── Page header (title row) ──────────────────── */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
 /* ─── Mobile ─────────────────────────────────── */
 @media (max-width: 640px) {
-  .card { padding: 1rem; }
+  .card { padding: 0.9rem; }
 
+  /* Modal: slide up from bottom */
   .modal {
     max-width: 100% !important;
+    max-height: 88vh;
+    overflow-y: auto;
     margin: 0;
-    border-radius: 16px 16px 0 0 !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding: 1.25rem 1rem 1.5rem;
   }
   .modal-backdrop {
     align-items: flex-end !important;
     padding: 0 !important;
+  }
+
+  /* Page header: stack vertically */
+  .page-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem;
+  }
+
+  /* Buttons in page header take full width */
+  .page-header > .btn-primary,
+  .page-header > .btn-secondary,
+  .page-header > .btn-danger {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Filter tabs: wrap */
+  .filter-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem !important;
+  }
+
+  /* Guard page tabs: wrap */
+  .guard-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem !important;
+  }
+
+  /* Generate form: 2-column (dates top, buttons bottom) */
+  .generate-form-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Positions add form: single column */
+  .positions-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Constraint date inputs: stack */
+  .constraint-date-grid {
+    grid-template-columns: 1fr !important;
   }
 
   .btn-primary, .btn-secondary, .btn-danger {
@@ -222,32 +278,15 @@ body {
 
   .section-title { font-size: 0.95rem; }
 
-  /* stack 2-col date grid */
-  .constraint-date-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* positions form: full width stack */
-  .positions-form-grid {
-    grid-template-columns: 1fr 1fr !important;
-  }
-
-  /* generate form: stack */
-  .generate-form-grid {
-    grid-template-columns: 1fr 1fr !important;
-  }
-
-  /* table font */
   .table-base th, .table-base td {
-    padding: 0.5rem 0.6rem;
-    font-size: 0.82rem;
+    padding: 0.45rem 0.55rem;
+    font-size: 0.8rem;
   }
 
-  /* hide low-priority columns */
   .hide-mobile { display: none !important; }
 
   main {
-    padding: 1rem 0.75rem 5rem !important; /* room for bottom nav */
+    padding: 1rem 0.75rem 5.5rem !important;
   }
 }
 
@@ -286,9 +325,6 @@ body {
   }
   .bottom-nav a span.icon { font-size: 1.2rem; }
 
-  /* hide center nav on mobile — bottom nav takes over */
   .top-nav-links { display: none !important; }
-
-  /* compact top bar */
   .top-bar-user { font-size: 0.78rem !important; }
 }

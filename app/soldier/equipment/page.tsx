@@ -45,7 +45,7 @@ export default function SoldierEquipmentPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+      <div className="page-header">
         <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--sidebar)' }}>הציוד שלי</h1>
         <button className="btn-primary" onClick={() => setShowModal(true)}>+ בקשה לציוד חסר</button>
       </div>
