@@ -2,13 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { generateGuardRoster } from '@/lib/guard-generator'
 
+function parseDateParts(dateStr: string): [number, number, number] {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return [y, m - 1, d]
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { start_date, end_date } = body
+  const { start_date, end_date, mission_hour } = body
 
   if (!start_date || !end_date) {
     return NextResponse.json({ error: 'חסרים תאריכים' }, { status: 400 })
   }
+
+  const hour = typeof mission_hour === 'number' ? mission_hour : 12
+
+  // Build exact UTC timestamps for mission start and end
+  const [sy, sm, sd] = parseDateParts(start_date)
+  const [ey, em, ed] = parseDateParts(end_date)
+  const missionStart = new Date(Date.UTC(sy, sm, sd, hour, 0, 0, 0))
+  const missionEnd   = new Date(Date.UTC(ey, em, ed, hour, 0, 0, 0))
 
   const [positionsRes, soldiersRes, constraintsRes, presenceRes] = await Promise.all([
     supabase.from('guard_positions').select('*').eq('is_active', true),
@@ -34,14 +47,14 @@ export async function POST(req: NextRequest) {
       .from('guard_slots')
       .select('soldier_id')
       .in('position_id', hamalPositionIds)
-      .lte('start_time', new Date(end_date + 'T23:59:59').toISOString())
-      .gte('end_time', new Date(start_date).toISOString())
+      .lt('start_time', missionEnd.toISOString())
+      .gte('end_time', missionStart.toISOString())
     excludedSoldierIds = [...new Set(hamalSlots?.map(s => s.soldier_id) ?? [])]
   }
 
   const slots = generateGuardRoster(
-    new Date(start_date),
-    new Date(end_date),
+    missionStart,
+    missionEnd,
     positionsRes.data ?? [],
     soldiersRes.data ?? [],
     constraintsRes.data ?? [],
@@ -53,7 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'לא ניתן ליצור רשימת שמירה — אין עמדות פעילות או חיילים זמינים' }, { status: 400 })
   }
 
-  // Delete only guard-category slots in the range (preserve hamal/kitchen)
+  // Delete only guard-category slots in the mission range (preserve hamal/kitchen)
   const guardPositionIds = (positionsRes.data ?? [])
     .filter(p => !p.category || p.category === 'guard')
     .map(p => p.id)
@@ -61,8 +74,8 @@ export async function POST(req: NextRequest) {
   if (guardPositionIds.length > 0) {
     await supabase.from('guard_slots').delete()
       .in('position_id', guardPositionIds)
-      .gte('start_time', new Date(start_date).toISOString())
-      .lte('start_time', new Date(end_date + 'T23:59:59').toISOString())
+      .gte('start_time', missionStart.toISOString())
+      .lt('start_time', missionEnd.toISOString())
   }
 
   const { data, error } = await supabase.from('guard_slots').insert(slots).select()

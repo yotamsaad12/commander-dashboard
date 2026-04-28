@@ -6,9 +6,12 @@ import StatusBadge from '@/components/StatusBadge'
 
 function fmt(iso: string, mode: 'date' | 'time' | 'both' = 'both') {
   const d = new Date(iso)
-  if (mode === 'date') return d.toLocaleDateString('he-IL')
-  if (mode === 'time') return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
-  return `${d.toLocaleDateString('he-IL')} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const date = `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`
+  const time = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+  if (mode === 'date') return date
+  if (mode === 'time') return time
+  return `${date} ${time}`
 }
 
 function durationLabel(hours: number) {
@@ -54,7 +57,7 @@ export default function CommanderGuardPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'roster' | 'positions' | 'hamal' | 'swaps'>('roster')
 
-  const [genForm, setGenForm] = useState({ start_date: '', end_date: '' })
+  const [genForm, setGenForm] = useState({ start_date: '', end_date: '', mission_hour: 12 })
   const [generating, setGenerating] = useState(false)
   const [genMsg, setGenMsg] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -92,13 +95,13 @@ export default function CommanderGuardPage() {
     ])
 
     const allFuture: GuardSlot[] = Array.isArray(allSlotsRes) ? allSlotsRes : []
-    let filtered = allFuture
+    const filtered = allFuture
     if (allFuture.length > 0) {
       const earliest = new Date(allFuture[0].start_time)
-      const periodStart = new Date(earliest); periodStart.setHours(0, 0, 0, 0)
-      const periodEnd = new Date(periodStart); periodEnd.setDate(periodEnd.getDate() + 6); periodEnd.setHours(23, 59, 59, 999)
-      filtered = allFuture.filter(s => new Date(s.start_time) <= periodEnd)
-      setRosterLabel(`${periodStart.toLocaleDateString('he-IL')} – ${periodEnd.toLocaleDateString('he-IL')}`)
+      const latest   = new Date(allFuture[allFuture.length - 1].start_time)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const fmtDate = (d: Date) => `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`
+      setRosterLabel(`${fmtDate(earliest)} – ${fmtDate(latest)}`)
     } else {
       setRosterLabel('')
     }
@@ -305,7 +308,7 @@ export default function CommanderGuardPage() {
         <>
           <div className="card" style={{ marginBottom: '1.25rem' }}>
             <h2 className="section-title">יצירת רשימת שמירה אוטומטית</h2>
-            <div className="generate-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: '0.75rem', alignItems: 'flex-end' }}>
+            <div className="generate-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto auto', gap: '0.75rem', alignItems: 'flex-end' }}>
               <div>
                 <label className="label">מתאריך</label>
                 <input type="date" className="input" value={genForm.start_date} onChange={e => setGenForm(f => ({ ...f, start_date: e.target.value }))} />
@@ -313,6 +316,14 @@ export default function CommanderGuardPage() {
               <div>
                 <label className="label">עד תאריך</label>
                 <input type="date" className="input" value={genForm.end_date} onChange={e => setGenForm(f => ({ ...f, end_date: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">שעת עלייה / ירידה למשימה</label>
+                <select className="input" value={genForm.mission_hour} onChange={e => setGenForm(f => ({ ...f, mission_hour: parseInt(e.target.value) }))}>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                  ))}
+                </select>
               </div>
               <button className="btn-primary" disabled={!genForm.start_date || !genForm.end_date || generating} onClick={generate} style={{ whiteSpace: 'nowrap' }}>
                 {generating ? 'יוצר...' : '⚡ צור אוטומטית'}

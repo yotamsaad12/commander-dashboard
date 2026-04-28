@@ -18,11 +18,6 @@ function utcDateStr(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/** Parse a "YYYY-MM-DD" date string as UTC midnight. */
-function parseUTCDate(s: string): Date {
-  return new Date(s + 'T00:00:00.000Z')
-}
-
 function isAvailable(
   soldier: User,
   slotStart: Date,
@@ -30,29 +25,25 @@ function isAvailable(
   constraints: Constraint[],
   dailyPresence: DailyPresence[]
 ): boolean {
-  // --- Approved constraint check ---
+  // Approved constraint check
   for (const c of constraints) {
     if (c.user_id !== soldier.id || c.status !== 'approved') continue
 
-    // Parse dates as UTC so there's no timezone shift
-    const cStart = parseUTCDate(c.start_date)
-    const cEnd   = new Date(c.end_date + 'T23:59:59.999Z')
+    const cStart = new Date(c.start_date + 'T00:00:00.000Z')
+    const cEnd   = new Date(c.end_date   + 'T23:59:59.999Z')
 
-    // Slot overlaps with constraint period
     if (slotStart < cEnd && slotEnd > cStart) return false
 
-    // Rest rule: ≥1-day absence → 6h rest after returning
+    // Rest rule: ≥1-day absence → 6h recovery after returning
     const absenceDays = (cEnd.getTime() - cStart.getTime()) / MS_DAY
     if (absenceDays >= 1 && slotStart < new Date(cEnd.getTime() + 6 * MS_HOUR)) return false
   }
 
-  // --- Per-day presence check (daily_presence table) ---
-  // Walk every UTC calendar day the slot touches and look for is_present=false records.
+  // Per-day presence check: walk every UTC calendar day the slot touches
   const slotStartDay = new Date(utcDateStr(slotStart) + 'T00:00:00.000Z')
   const slotEndDay   = new Date(utcDateStr(slotEnd)   + 'T00:00:00.000Z')
-
   for (let d = slotStartDay; d <= slotEndDay; d = new Date(d.getTime() + MS_DAY)) {
-    const ds = utcDateStr(d)
+    const ds  = utcDateStr(d)
     const rec = dailyPresence.find(p => p.user_id === soldier.id && p.date === ds)
     if (rec && !rec.is_present) return false
   }
@@ -69,19 +60,19 @@ interface PendingSlot {
   pool: User[]
 }
 
+/**
+ * Build all candidate slots across all guard positions within [missionStart, missionEnd).
+ * missionStart / missionEnd are exact UTC timestamps (e.g. 2024-05-01T12:00:00Z).
+ */
 function buildPendingSlots(
   positions: GuardPosition[],
   activeMembers: User[],
-  startDate: Date,
-  endDate: Date
+  missionStart: Date,
+  missionEnd: Date
 ): PendingSlot[] {
   const pending: PendingSlot[] = []
-
-  // endMs is the last valid millisecond of endDate in UTC
-  const endMs = Date.UTC(
-    endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(),
-    23, 59, 59, 999
-  )
+  const startMs = missionStart.getTime()
+  const endMs   = missionEnd.getTime()
 
   for (const position of positions.filter(p => p.is_active && (!p.category || p.category === 'guard'))) {
     const shiftHours    = position.shift_duration_hours
@@ -93,31 +84,36 @@ function buildPendingSlots(
     const pool = activeMembers.filter(s => s.role === 'soldier' || shiftHours <= 4)
 
     if (shiftHours >= 24) {
-      // Long shift: one slot per period starting at startHour (UTC)
+      // Long shift: first occurrence is position's startHour on the mission's first UTC day,
+      // advancing past missionStart if needed.
       let cur = new Date(Date.UTC(
-        startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(),
+        missionStart.getUTCFullYear(), missionStart.getUTCMonth(), missionStart.getUTCDate(),
         startHour, 0, 0, 0
       ))
-      while (cur.getTime() <= endMs) {
+      // Advance to the first occurrence that falls at or after missionStart
+      while (cur.getTime() < startMs) cur = new Date(cur.getTime() + shiftMs)
+
+      while (cur.getTime() < endMs) {
         const slotStart = new Date(cur)
         const slotEnd   = new Date(cur.getTime() + shiftMs)
         pending.push({ positionId: position.id, slotStart, slotEnd, shiftDurationMs: shiftMs, slotsPerShift, pool })
         cur = new Date(slotEnd)
       }
     } else {
-      // Short shift: divide each UTC day into equal parts starting at 00:00 UTC
+      // Short shift: iterate UTC days and emit shift-aligned slots
       const shiftsPerDay = Math.floor(24 / shiftHours)
       let dayStart = new Date(Date.UTC(
-        startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()
+        missionStart.getUTCFullYear(), missionStart.getUTCMonth(), missionStart.getUTCDate()
       ))
-      while (dayStart.getTime() <= endMs) {
+
+      while (dayStart.getTime() < endMs) {
         for (let s = 0; s < shiftsPerDay; s++) {
           const slotStart = new Date(dayStart.getTime() + s * shiftMs)
-          const slotEnd   = new Date(slotStart.getTime() + shiftMs)
-          if (slotStart.getTime() > endMs) break
+          if (slotStart.getTime() < startMs) continue  // before mission start (first day)
+          if (slotStart.getTime() >= endMs)  break      // at or after mission end (last day)
+          const slotEnd = new Date(slotStart.getTime() + shiftMs)
           pending.push({ positionId: position.id, slotStart, slotEnd, shiftDurationMs: shiftMs, slotsPerShift, pool })
         }
-        // Advance to next UTC day
         dayStart = new Date(Date.UTC(
           dayStart.getUTCFullYear(), dayStart.getUTCMonth(), dayStart.getUTCDate() + 1
         ))
@@ -125,14 +121,14 @@ function buildPendingSlots(
     }
   }
 
-  // Sort ALL slots chronologically so assignments respect time order across positions
+  // Sort all slots chronologically so assignments respect time order across positions
   pending.sort((a, b) => a.slotStart.getTime() - b.slotStart.getTime())
   return pending
 }
 
 export function generateGuardRoster(
-  startDate: Date,
-  endDate: Date,
+  missionStart: Date,
+  missionEnd: Date,
   positions: GuardPosition[],
   soldiers: User[],
   approvedConstraints: Constraint[],
@@ -141,13 +137,12 @@ export function generateGuardRoster(
 ): GeneratedSlot[] {
   const result: GeneratedSlot[] = []
 
-  const shiftCounts:    Record<string, number> = {}
-  // lastAvailableAt[id] = earliest UTC ms when soldier may start another shift
+  const shiftCounts:     Record<string, number> = {}
   const lastAvailableAt: Record<string, number> = {}
   soldiers.forEach(s => { shiftCounts[s.id] = 0; lastAvailableAt[s.id] = 0 })
 
   const activeMembers = soldiers.filter(s => s.is_active && !excludedSoldierIds.includes(s.id))
-  const pendingSlots  = buildPendingSlots(positions, activeMembers, startDate, endDate)
+  const pendingSlots  = buildPendingSlots(positions, activeMembers, missionStart, missionEnd)
 
   for (const { positionId, slotStart, slotEnd, shiftDurationMs, slotsPerShift, pool } of pendingSlots) {
     const slotStartMs = slotStart.getTime()
@@ -157,7 +152,7 @@ export function generateGuardRoster(
       const candidates = pool
         .filter(s =>
           !assigned.has(s.id) &&
-          slotStartMs >= lastAvailableAt[s.id] &&          // minimum rest enforced
+          slotStartMs >= lastAvailableAt[s.id] &&
           isAvailable(s, slotStart, slotEnd, approvedConstraints, dailyPresence)
         )
         .sort((a, b) => (shiftCounts[a.id] ?? 0) - (shiftCounts[b.id] ?? 0))
@@ -167,7 +162,6 @@ export function generateGuardRoster(
       const chosen = candidates[0]
       assigned.add(chosen.id)
       shiftCounts[chosen.id]++
-      // 1:1 work-to-rest ratio: next available = end of this shift + same duration
       lastAvailableAt[chosen.id] = slotEnd.getTime() + shiftDurationMs
       result.push({
         position_id: positionId,

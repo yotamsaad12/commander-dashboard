@@ -7,7 +7,20 @@ import StatusBadge from '@/components/StatusBadge'
 
 function formatDateTime(iso: string) {
   const d = new Date(iso)
-  return `${d.toLocaleDateString('he-IL')} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+}
+
+function fmtTime(iso: string) {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+}
+
+function fmtDayLabel(iso: string) {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`
 }
 
 export default function SoldierGuardPage() {
@@ -34,17 +47,7 @@ export default function SoldierGuardPage() {
     const allFuture: GuardSlot[] = Array.isArray(allRes) ? allRes : []
 
     // Find the nearest roster period: take the earliest slot's date and show all slots on the same calendar day range
-    let all = allFuture
-    if (allFuture.length > 0) {
-      const earliest = new Date(allFuture[0].start_time)
-      const periodStart = new Date(earliest)
-      periodStart.setHours(0, 0, 0, 0)
-      // Find the last slot that starts within 7 days of the earliest
-      const periodEnd = new Date(periodStart)
-      periodEnd.setDate(periodEnd.getDate() + 6)
-      periodEnd.setHours(23, 59, 59, 999)
-      all = allFuture.filter(s => new Date(s.start_time) <= periodEnd)
-    }
+    const all = allFuture
 
     setAllSlots(all)
     setMySlots(all.filter((s: GuardSlot) => s.soldier_id === session.id))
@@ -79,7 +82,7 @@ export default function SoldierGuardPage() {
   const displayedSlots = myOnly ? allSlots.filter(s => s.soldier_id === session?.id) : allSlots
   const days: Record<string, GuardSlot[]> = {}
   displayedSlots.forEach(slot => {
-    const day = new Date(slot.start_time).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })
+    const day = fmtDayLabel(slot.start_time)
     if (!days[day]) days[day] = []
     days[day].push(slot)
   })
@@ -91,7 +94,7 @@ export default function SoldierGuardPage() {
           <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--sidebar)' }}>רשימת שמירה קרובה</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
             {allSlots.length > 0
-              ? new Date(allSlots[0].start_time).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' })
+              ? fmtDayLabel(allSlots[0].start_time)
               : myOnly ? `מציג ${mySlots.length} משמרות שלך בלבד` : 'השמירות שלך מסומנות'}
           </p>
         </div>
@@ -137,9 +140,9 @@ export default function SoldierGuardPage() {
                   return (
                     <tr key={slot.id} style={{ background: isMine ? '#e8f5e9' : undefined }}>
                       <td style={{ fontWeight: isMine ? 700 : 400, fontSize: '0.85rem', fontFamily: 'monospace', direction: 'ltr', textAlign: 'left' }}>
-                        {new Date(slot.start_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                        {fmtTime(slot.start_time)}
                         {' — '}
-                        {new Date(slot.end_time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                        {fmtTime(slot.end_time)}
                       </td>
                       <td>{slot.guard_positions?.name || '—'}</td>
                       <td style={{ fontWeight: isMine ? 700 : 400, color: isMine ? 'var(--primary)' : undefined }}>
