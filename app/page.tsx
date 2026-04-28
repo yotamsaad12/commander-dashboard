@@ -6,6 +6,8 @@ import { setSession } from '@/lib/session'
 import { User } from '@/lib/types'
 import { useSession } from '@/contexts/SessionContext'
 
+const COMMANDER_PASSWORD = 'team1'
+
 export default function LoginPage() {
   const router = useRouter()
   const { session, loading, refresh } = useSession()
@@ -14,6 +16,8 @@ export default function LoginPage() {
   const [selected, setSelected] = useState<User | null>(null)
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
   useEffect(() => {
     if (!loading && session) {
@@ -30,8 +34,22 @@ export default function LoginPage() {
 
   const filtered = users.filter(u => u.name.includes(search))
 
+  const handleSelect = (u: User) => {
+    setSelected(u)
+    setPassword('')
+    setPasswordError('')
+  }
+
   const handleEnter = () => {
     if (!selected) return
+
+    if (selected.role === 'commander') {
+      if (password !== COMMANDER_PASSWORD) {
+        setPasswordError('סיסמה שגויה')
+        return
+      }
+    }
+
     setSession({ id: selected.id, name: selected.name, role: selected.role })
     window.location.href = selected.role === 'commander' ? '/commander/equipment' : '/soldier/equipment'
   }
@@ -60,7 +78,7 @@ export default function LoginPage() {
             className="input"
             placeholder="הקלד שם..."
             value={search}
-            onChange={e => { setSearch(e.target.value); setSelected(null) }}
+            onChange={e => { setSearch(e.target.value); setSelected(null); setPassword(''); setPasswordError('') }}
           />
         </div>
 
@@ -73,7 +91,7 @@ export default function LoginPage() {
             filtered.map(u => (
               <div
                 key={u.id}
-                onClick={() => setSelected(u)}
+                onClick={() => handleSelect(u)}
                 style={{
                   padding: '0.75rem 1rem',
                   cursor: 'pointer',
@@ -96,10 +114,34 @@ export default function LoginPage() {
           )}
         </div>
 
+        {/* Password field — only for commanders */}
+        {selected?.role === 'commander' && (
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label className="label">
+              סיסמת מפקד
+              <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginRight: '0.35rem' }}>— נדרשת לכניסה כמפקד</span>
+            </label>
+            <input
+              className="input"
+              type="password"
+              placeholder="הזן סיסמה..."
+              value={password}
+              onChange={e => { setPassword(e.target.value); setPasswordError('') }}
+              onKeyDown={e => e.key === 'Enter' && handleEnter()}
+              autoFocus
+            />
+            {passwordError && (
+              <div style={{ color: 'var(--danger)', fontSize: '0.82rem', marginTop: '0.35rem', fontWeight: 600 }}>
+                ❌ {passwordError}
+              </div>
+            )}
+          </div>
+        )}
+
         <button
           className="btn-primary"
           style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
-          disabled={!selected}
+          disabled={!selected || (selected.role === 'commander' && !password)}
           onClick={handleEnter}
         >
           {selected ? `כניסה כ${selected.name}` : 'בחר שם כדי להיכנס'}

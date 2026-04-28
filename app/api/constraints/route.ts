@@ -64,3 +64,50 @@ export async function PATCH(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
+
+export async function PUT(req: NextRequest) {
+  const body = await req.json()
+  const { id, start_date, end_date, reason } = body
+
+  if (!id || !start_date || !end_date || !reason) {
+    return NextResponse.json({ error: 'חסרים שדות חובה' }, { status: 400 })
+  }
+
+  // Only pending constraints can be edited
+  const { data: existing } = await supabase.from('constraints').select('status').eq('id', id).single()
+  if (existing?.status !== 'pending') {
+    return NextResponse.json({ error: 'ניתן לערוך רק בקשות ממתינות' }, { status: 403 })
+  }
+
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const minDate = new Date(today.getTime() + 7 * 24 * 3600 * 1000)
+  if (new Date(start_date) < minDate) {
+    return NextResponse.json({ error: 'אילוץ חייב להיות מוגש לפחות שבוע מראש', tooLate: true }, { status: 422 })
+  }
+
+  const { data, error } = await supabase
+    .from('constraints')
+    .update({ start_date, end_date, reason })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id')
+  if (!id) return NextResponse.json({ error: 'חסר id' }, { status: 400 })
+
+  // Only pending constraints can be deleted
+  const { data: existing } = await supabase.from('constraints').select('status').eq('id', id).single()
+  if (existing?.status !== 'pending') {
+    return NextResponse.json({ error: 'ניתן למחוק רק בקשות ממתינות' }, { status: 403 })
+  }
+
+  const { error } = await supabase.from('constraints').delete().eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
+}
