@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import * as XLSX from 'xlsx'
 import { Equipment, EquipmentRequest, User } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 
@@ -21,13 +22,11 @@ interface EquipmentForm {
   subtype: string
   serial_number: string
   extra_serial: string
-  quantity: string
   notes: string
 }
 
 const emptyForm = (): EquipmentForm => ({
-  user_id: '', type: '', subtype: '', serial_number: '',
-  extra_serial: '', quantity: '', notes: '',
+  user_id: '', type: '', subtype: '', serial_number: '', extra_serial: '', notes: '',
 })
 
 export default function CommanderEquipmentPage() {
@@ -63,17 +62,13 @@ export default function CommanderEquipmentPage() {
     setShowModal(true)
   }
 
-  const isRimmonim = form.type === 'רימונים'
-  const isScope    = form.type === 'כוונת'
-  const extraItem  = EXTRA_ITEMS[form.type]
+  const isScope   = form.type === 'כוונת'
+  const isGrenades = form.type === 'רימונים'
+  const extraItem = EXTRA_ITEMS[form.type]
 
   const save = async () => {
     if (!form.user_id || !form.type) return
     setSubmitting(true)
-
-    const baseSerial = isRimmonim
-      ? (form.quantity ? `כמות: ${form.quantity}` : '')
-      : form.serial_number
 
     const mainType = isScope && form.subtype ? `כוונת ${form.subtype}` : form.type
 
@@ -81,16 +76,14 @@ export default function CommanderEquipmentPage() {
       await fetch('/api/equipment', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editItem.id, type: mainType, serial_number: baseSerial || null, notes: form.notes }),
+        body: JSON.stringify({ id: editItem.id, type: mainType, serial_number: form.serial_number || null, notes: form.notes }),
       })
     } else {
-      // Insert main item
       await fetch('/api/equipment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: form.user_id, type: mainType, serial_number: baseSerial || null, notes: form.notes }),
+        body: JSON.stringify({ user_id: form.user_id, type: mainType, serial_number: form.serial_number || null, notes: form.notes }),
       })
-      // Insert required companion item (זאבון for מטול, קנה ספר for מאג)
       if (extraItem) {
         await fetch('/api/equipment', {
           method: 'POST',
@@ -127,6 +120,32 @@ export default function CommanderEquipmentPage() {
     return true
   }
 
+  const exportToExcel = () => {
+    // Collect all unique equipment types from actual data, preserving logical order
+    const typeOrder = [...EQUIPMENT_TYPES, 'זאבון', 'קנה ספר']
+    const usedTypes = typeOrder.filter(t => equipment.some(e => e.type === t))
+    // Add any types not in the predefined list (e.g. כוונת מאפרו)
+    equipment.forEach(e => { if (!usedTypes.includes(e.type)) usedTypes.push(e.type) })
+
+    const rows = soldiers.map(soldier => {
+      const row: Record<string, string> = { 'שם': soldier.name }
+      usedTypes.forEach(type => {
+        const items = equipment.filter(e => e.user_id === soldier.id && e.type === type)
+        row[type] = items.map(e => e.serial_number || '').filter(Boolean).join(', ')
+      })
+      return row
+    })
+
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ['שם', ...usedTypes] })
+
+    // Column widths
+    ws['!cols'] = [{ wch: 16 }, ...usedTypes.map(() => ({ wch: 18 }))]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'ציוד')
+    XLSX.writeFile(wb, 'רשימת_ציוד.xlsx')
+  }
+
   if (loading) return <div style={{ padding: '2rem', color: 'var(--text-muted)' }}>טוען...</div>
 
   const filtered = filterSoldier ? equipment.filter(e => e.user_id === filterSoldier) : equipment
@@ -136,7 +155,10 @@ export default function CommanderEquipmentPage() {
     <div>
       <div className="page-header">
         <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--sidebar)' }}>ניהול ציוד</h1>
-        <button className="btn-primary" onClick={openAdd}>+ שייך ציוד לחייל</button>
+        <div style={{ display: 'flex', gap: '0.6rem' }}>
+          <button className="btn-secondary" onClick={exportToExcel}>⬇ ייצא לאקסל</button>
+          <button className="btn-primary" onClick={openAdd}>+ שייך ציוד לחייל</button>
+        </div>
       </div>
 
       {pending.length > 0 && (
@@ -177,7 +199,7 @@ export default function CommanderEquipmentPage() {
         ) : (
           <div className="table-wrapper"><table className="table-base">
             <thead>
-              <tr><th>חייל</th><th>סוג ציוד</th><th>מספר סידורי / כמות</th><th>הערות</th><th>פעולות</th></tr>
+              <tr><th>חייל</th><th>סוג ציוד</th><th>מספר סידורי</th><th>הערות</th><th>פעולות</th></tr>
             </thead>
             <tbody>
               {filtered.map(eq => (
@@ -240,25 +262,25 @@ export default function CommanderEquipmentPage() {
               </div>
             )}
 
-            {/* Serial number (hidden for רימונים) */}
-            {!isRimmonim && (
-              <div style={{ marginBottom: '0.75rem' }}>
-                <label className="label">מספר סידורי <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(אופציונלי)</span></label>
-                <input className="input" placeholder="מספר סידורי..." value={form.serial_number}
-                  onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))}
-                  style={{ direction: 'ltr', textAlign: 'left' }} />
-              </div>
-            )}
-
-            {/* רימונים → quantity */}
-            {isRimmonim && (
-              <div style={{ marginBottom: '0.75rem', padding: '0.75rem', background: 'var(--accent)', borderRadius: '6px' }}>
-                <label className="label">כמות רימונים</label>
-                <input type="number" min="1" className="input" style={{ width: '120px' }}
-                  placeholder="כמות..." value={form.quantity}
-                  onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
-              </div>
-            )}
+            {/* Serial number — for all types including grenades */}
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label className="label">
+                {isGrenades ? 'מספרים סיריאליים' : 'מספר סידורי'}
+                <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginRight: '0.35rem' }}>(אופציונלי)</span>
+              </label>
+              <input
+                className="input"
+                placeholder={isGrenades ? 'לדוגמא: 1, 2, 3' : 'מספר סידורי...'}
+                value={form.serial_number}
+                onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))}
+                style={{ direction: 'ltr', textAlign: 'left' }}
+              />
+              {isGrenades && (
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                  ניתן להזין מספרים מרובים מופרדים בפסיק
+                </p>
+              )}
+            </div>
 
             {/* מטול / מאג → companion item */}
             {extraItem && !editItem && (
