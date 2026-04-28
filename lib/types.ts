@@ -41,6 +41,14 @@ export interface Constraint {
   users?: Pick<User, 'id' | 'name'>
 }
 
+export type PositionCategory = 'guard' | 'kitchen' | 'hamal'
+
+export interface DailyPresence {
+  user_id: string
+  date: string       // YYYY-MM-DD
+  is_present: boolean
+}
+
 export interface GuardPosition {
   id: string
   name: string
@@ -48,6 +56,7 @@ export interface GuardPosition {
   slots_count: number
   start_hour: number
   is_active: boolean
+  category: PositionCategory
 }
 
 export interface GuardSlot {

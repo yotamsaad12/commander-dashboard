@@ -14,7 +14,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { name, shift_duration_hours, slots_count, start_hour } = body
+  const { name, shift_duration_hours, slots_count, start_hour, category } = body
 
   if (!name || !shift_duration_hours) {
     return NextResponse.json({ error: 'חסרים שדות חובה' }, { status: 400 })
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('guard_positions')
-    .insert({ name, shift_duration_hours, slots_count: slots_count ?? 1, start_hour: start_hour ?? 0 })
+    .insert({ name, shift_duration_hours, slots_count: slots_count ?? 1, start_hour: start_hour ?? 0, category: category ?? 'guard' })
     .select()
     .single()
 

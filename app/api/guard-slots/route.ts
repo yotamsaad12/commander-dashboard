@@ -63,8 +63,16 @@ export async function DELETE(req: NextRequest) {
   const all = searchParams.get('all')
 
   if (all === '1') {
-    const { error } = await supabase.from('guard_slots').delete().gte('id', '00000000-0000-0000-0000-000000000000')
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // Only delete guard-category slots — preserve hamal and kitchen assignments
+    const { data: guardPositions } = await supabase
+      .from('guard_positions')
+      .select('id')
+      .or('category.is.null,category.eq.guard')
+    const guardPositionIds = guardPositions?.map(p => p.id) ?? []
+    if (guardPositionIds.length > 0) {
+      const { error } = await supabase.from('guard_slots').delete().in('position_id', guardPositionIds)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   }
 
